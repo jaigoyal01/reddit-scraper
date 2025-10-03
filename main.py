@@ -603,6 +603,36 @@ def main() -> None:
                 min_awards = st.number_input("Min Awards", value=0, help="Minimum award count")
                 oc_only = st.checkbox("Original Content Only", value=False)
         
+        # Keyword filters
+        with st.expander("🔍 Keyword Search Filters"):
+            st.markdown("**Search for specific keywords in posts:**")
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                search_keywords = st.text_input(
+                    "Keywords (comma-separated)",
+                    placeholder="e.g., docker, kubernetes, homelab",
+                    help="Enter keywords separated by commas. Posts matching ANY keyword will be included."
+                )
+            with col2:
+                st.markdown("<br>", unsafe_allow_html=True)  # Spacing
+                case_sensitive = st.checkbox("Case Sensitive", value=False, help="Enable case-sensitive matching")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                search_in = st.multiselect(
+                    "Search In",
+                    ["Title", "Post Text", "Both"],
+                    default=["Both"],
+                    help="Choose where to search for keywords"
+                )
+            with col2:
+                match_type = st.radio(
+                    "Match Type",
+                    ["Any keyword (OR)", "All keywords (AND)"],
+                    help="Match any keyword or require all keywords"
+                )
+        
         # Category filters (like GummySearch)
         with st.expander("🏷️ Category Filters (GummySearch Style)"):
             st.markdown("**Filter by Content Categories:**")
@@ -655,6 +685,35 @@ def main() -> None:
                     df = df[df['Category'].isin(selected_categories)]
                 if min_confidence > 0:
                     df = df[df['Category Confidence'] >= min_confidence]
+                
+                # Apply keyword filters
+                if search_keywords and search_keywords.strip():
+                    keywords = [k.strip() for k in search_keywords.split(',') if k.strip()]
+                    if keywords:
+                        def matches_keywords(row):
+                            # Determine search text based on user selection
+                            search_text = ""
+                            if "Both" in search_in or not search_in:
+                                search_text = f"{row['Title']} {row['Post Text']}"
+                            elif "Title" in search_in:
+                                search_text = row['Title']
+                            elif "Post Text" in search_in:
+                                search_text = row['Post Text']
+                            
+                            if not case_sensitive:
+                                search_text = search_text.lower()
+                                keywords_to_match = [k.lower() for k in keywords]
+                            else:
+                                keywords_to_match = keywords
+                            
+                            # Check match type
+                            if match_type == "All keywords (AND)":
+                                return all(keyword in search_text for keyword in keywords_to_match)
+                            else:  # Any keyword (OR)
+                                return any(keyword in search_text for keyword in keywords_to_match)
+                        
+                        df = df[df.apply(matches_keywords, axis=1)]
+                        st.info(f"🔍 Filtered by keywords: {', '.join(keywords)}")
 
                 st.success(f"✅ Successfully fetched {len(df)} posts from r/{sub_name}")
                 
@@ -702,11 +761,12 @@ def main() -> None:
 
                 # Data table with enhanced display
                 st.markdown('<h3 class="section-header">📋 Post Data</h3>', unsafe_allow_html=True)
+                st.info("💡 **Tip:** 'Post Text' column contains the full text content of each post. Use the column selector below to customize your view.")
                 
                 # Column selection
-                with st.expander("🔧 Customize Columns"):
+                with st.expander("🔧 Customize Columns", expanded=False):
                     all_columns = df.columns.tolist()
-                    default_columns = ['Title', 'Category', 'Author', 'Score', 'Total Comments', 'Created UTC', 'Permalink']
+                    default_columns = ['Title', 'Post Text', 'Category', 'Author', 'Score', 'Total Comments', 'Created UTC', 'Permalink']
                     selected_columns = st.multiselect(
                         "Select columns to display:",
                         all_columns,
@@ -783,6 +843,15 @@ def main() -> None:
             with col2:
                 min_comment_score = st.number_input("Min Comment Score", value=-1000)
                 max_comments = st.number_input("Max Comments", value=1000, min_value=1)
+        
+        # Keyword filter for comments
+        with st.expander("🔍 Comment Keyword Filter"):
+            comment_keywords = st.text_input(
+                "Filter comments by keywords (comma-separated)",
+                placeholder="e.g., solution, tutorial, help",
+                help="Only show comments containing these keywords"
+            )
+            comment_case_sensitive = st.checkbox("Case Sensitive (Comments)", value=False)
 
         if st.button("🚀 Scrape Post & Comments", use_container_width=True):
             if url:
@@ -834,6 +903,23 @@ def main() -> None:
                         # Limit comments
                         if len(filtered_cmt_df) > max_comments:
                             filtered_cmt_df = filtered_cmt_df.head(max_comments)
+                        
+                        # Apply keyword filter to comments
+                        if comment_keywords and comment_keywords.strip():
+                            keywords = [k.strip() for k in comment_keywords.split(',') if k.strip()]
+                            if keywords:
+                                def comment_matches_keywords(text):
+                                    search_text = str(text)
+                                    if not comment_case_sensitive:
+                                        search_text = search_text.lower()
+                                        keywords_to_match = [k.lower() for k in keywords]
+                                    else:
+                                        keywords_to_match = keywords
+                                    return any(keyword in search_text for keyword in keywords_to_match)
+                                
+                                original_count = len(filtered_cmt_df)
+                                filtered_cmt_df = filtered_cmt_df[filtered_cmt_df['Comment Text'].apply(comment_matches_keywords)]
+                                st.info(f"🔍 Filtered comments by keywords: {', '.join(keywords)} ({len(filtered_cmt_df)} of {original_count} comments match)")
                         
                         st.markdown(f'<h3 class="section-header">💬 Comments ({len(filtered_cmt_df)} of {len(cmt_df)})</h3>', unsafe_allow_html=True)
                         
