@@ -10,6 +10,14 @@ from dotenv import load_dotenv
 import plotly.express as px
 import plotly.graph_objects as go
 
+# Import LLM service
+try:
+    from llm_service import AzureOpenAIService
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
+    st.warning("⚠️ LLM service dependencies not installed. Run: pip install openai tiktoken")
+
 
 # ────────────────────────────── env & reddit init ──────────────────────────────
 if os.path.exists(".env"):  # load only in local/dev
@@ -51,6 +59,18 @@ REDDIT_USER_AGENT = "RedditScraper/1.0 by /u/yourusername""",
         client_secret=client_secret,
         user_agent=user_agent,
     )
+
+
+def init_llm_service():
+    """Initialize LLM service for AI summarization"""
+    if not LLM_AVAILABLE:
+        return None
+    try:
+        service = AzureOpenAIService()
+        return service if service.is_available() else None
+    except Exception as e:
+        st.error(f"Failed to initialize LLM service: {e}")
+        return None
 
 
 # ──────────────────────────── Intelligent Categorization ────────────────────────────
@@ -167,13 +187,15 @@ def get_subreddit_posts(
     filter_type: str = "All",
     start: date | None = None,
     end:   date | None = None,
+    max_posts: int = 100,
 ) -> pd.DataFrame:
     """
-    Scrape **ALL** posts that fall inside the requested window.
-    • “All”, “Last Week”, “Last Month”, “Last Year” use rolling windows  
-    • “Date Range” honours the explicit `start` → `end` span  
-    Note: Reddit’s API caps results at ~1 000 posts per listing; for huge
-    subs you’ll hit that limit unless you integrate Pushshift.
+    Scrape posts that fall inside the requested window, up to max_posts limit.
+    • "All", "Last Week", "Last Month", "Last Year" use rolling windows  
+    • "Date Range" honours the explicit `start` → `end` span  
+    • max_posts: Maximum number of posts to fetch (default: 100)
+    Note: Reddit's API caps results at ~1 000 posts per listing; for huge
+    subs you'll hit that limit unless you integrate Pushshift.
     """
     try:
         sub   = _reddit.subreddit(name)
@@ -191,10 +213,16 @@ def get_subreddit_posts(
             end_ts   = datetime.combine(end,   datetime.max.time(), tzinfo=timezone.utc).timestamp()
 
         rows: list[dict] = []
+        posts_checked = 0
         for post in sub.new(limit=None):            # newest → oldest
+            posts_checked += 1
             if post.created_utc > end_ts:
                 continue
-            if post.created_utc < start_ts:         # we’re past window → stop
+            if post.created_utc < start_ts:         # we're past window → stop
+                break
+            
+            # Check if we've reached max_posts limit
+            if len(rows) >= max_posts:
                 break
 
             # Classify the post content
@@ -495,6 +523,160 @@ def create_stats_dashboard(df: pd.DataFrame):
         total_awards = df['Total Awards'].sum() if 'Total Awards' in df.columns else 0
         st.metric("🏆 Total Awards", int(total_awards))
 
+def display_single_post_summary(summary: dict):
+    """Display AI summary for a single post"""
+    if "error" in summary:
+        st.error(f"❌ {summary['error']}")
+        return
+    
+    st.markdown("### 🧠 AI-Powered Post Analysis")
+    
+    # Executive Summary
+    if "executive_summary" in summary:
+        st.markdown("#### 📋 Executive Summary")
+        st.info(summary["executive_summary"])
+    
+    # Key Insights
+    if "key_insights" in summary:
+        st.markdown("#### 💡 Key Insights")
+        for insight in summary["key_insights"]:
+            st.markdown(f"• {insight}")
+    
+    # Create columns for detailed analysis
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Pain Points
+        if "pain_points" in summary and summary["pain_points"]:
+            st.markdown("#### 😣 Pain Points")
+            for pain in summary["pain_points"]:
+                st.markdown(f"• {pain}")
+        
+        # Solutions
+        if "solutions_discussed" in summary and summary["solutions_discussed"]:
+            st.markdown("#### 💡 Solutions Discussed")
+            for solution in summary["solutions_discussed"]:
+                st.markdown(f"• {solution}")
+        
+        # Sentiment
+        if "sentiment" in summary:
+            st.markdown(f"#### 😊 Sentiment: **{summary['sentiment']}**")
+    
+    with col2:
+        # Business Opportunities
+        if "business_opportunities" in summary and summary["business_opportunities"]:
+            st.markdown("#### 🎯 Business Opportunities")
+            for opp in summary["business_opportunities"]:
+                st.markdown(f"• {opp}")
+        
+        # Action Items
+        if "action_items" in summary and summary["action_items"]:
+            st.markdown("#### ✅ Action Items")
+            for action in summary["action_items"]:
+                st.markdown(f"• {action}")
+    
+    # Community Consensus
+    if "community_consensus" in summary:
+        st.markdown("#### 🗣️ Community Consensus")
+        st.markdown(summary["community_consensus"])
+    
+    # Metadata
+    if "metadata" in summary:
+        with st.expander("📊 Analysis Details"):
+            meta = summary["metadata"]
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if "tokens" in meta:
+                    st.metric("Tokens Used", meta["tokens"].get("total", "N/A"))
+            with col2:
+                if "cost_inr" in meta:
+                    st.metric("Cost (INR)", f"₹{meta['cost_inr']:.4f}")
+            with col3:
+                if "processing_time" in meta:
+                    st.metric("Processing Time", f"{meta['processing_time']:.2f}s")
+
+def display_batch_summary(summary: dict):
+    """Display AI summary for batch of posts"""
+    if "error" in summary:
+        st.error(f"❌ {summary['error']}")
+        return
+    
+    st.markdown("### 🧠 AI-Powered Market Intelligence")
+    
+    # Executive Summary
+    if "executive_summary" in summary:
+        st.markdown("#### 📋 Executive Summary")
+        st.info(summary["executive_summary"])
+    
+    # Market Trends
+    if "market_trends" in summary and summary["market_trends"]:
+        st.markdown("#### 📈 Market Trends")
+        for trend in summary["market_trends"]:
+            st.markdown(f"• {trend}")
+    
+    # Two column layout
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Emerging Opportunities
+        if "emerging_opportunities" in summary and summary["emerging_opportunities"]:
+            st.markdown("#### 🚀 Emerging Opportunities")
+            for opp in summary["emerging_opportunities"]:
+                st.markdown(f"• {opp}")
+        
+        # Feature Requests
+        if "feature_requests" in summary and summary["feature_requests"]:
+            st.markdown("#### 🎯 Feature Requests")
+            for feature in summary["feature_requests"]:
+                st.markdown(f"• {feature}")
+    
+    with col2:
+        # Strategic Recommendations
+        if "strategic_recommendations" in summary and summary["strategic_recommendations"]:
+            st.markdown("#### 💼 Strategic Recommendations")
+            for rec in summary["strategic_recommendations"]:
+                st.markdown(f"• {rec}")
+        
+        # Risk Factors
+        if "risk_factors" in summary and summary["risk_factors"]:
+            st.markdown("#### ⚠️ Risk Factors")
+            for risk in summary["risk_factors"]:
+                st.markdown(f"• {risk}")
+    
+    # Competitive Landscape
+    if "competitive_landscape" in summary:
+        st.markdown("#### 🔄 Competitive Landscape")
+        st.markdown(summary["competitive_landscape"])
+    
+    # Customer Pain Points by Category
+    if "customer_pain_points" in summary and isinstance(summary["customer_pain_points"], dict):
+        with st.expander("😣 Pain Points by Category"):
+            for category, points in summary["customer_pain_points"].items():
+                st.markdown(f"**{category}:**")
+                if isinstance(points, list):
+                    for point in points:
+                        st.markdown(f"  • {point}")
+                else:
+                    st.markdown(f"  {points}")
+    
+    # Metadata
+    if "metadata" in summary:
+        with st.expander("📊 Analysis Details"):
+            meta = summary["metadata"]
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                if "posts_analyzed" in meta:
+                    st.metric("Posts Analyzed", meta["posts_analyzed"])
+            with col2:
+                if "tokens" in meta:
+                    st.metric("Tokens Used", meta["tokens"].get("total", "N/A"))
+            with col3:
+                if "cost_inr" in meta:
+                    st.metric("Cost (INR)", f"₹{meta['cost_inr']:.4f}")
+            with col4:
+                if "processing_time" in meta:
+                    st.metric("Time", f"{meta['processing_time']:.2f}s")
+
 def main() -> None:
     st.set_page_config(
         page_title="Reddit Data Scraper",
@@ -519,6 +701,7 @@ def main() -> None:
     )
     
     reddit = init_reddit()
+    llm_service = init_llm_service()
 
     # Enhanced sidebar with better organization
     with st.sidebar:
@@ -532,6 +715,33 @@ def main() -> None:
         )
         
         st.markdown("---")
+        
+        # LLM Usage Statistics
+        if llm_service and llm_service.is_available():
+            st.markdown("### 🧠 AI Usage Stats")
+            try:
+                usage_stats = llm_service.cost_tracker.get_monthly_usage()
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("This Month", f"₹{usage_stats['total_cost_inr']:.2f}")
+                with col2:
+                    st.metric("Budget", f"₹{usage_stats['budget_limit']:.0f}")
+                
+                # Progress bar
+                usage_percent = usage_stats['percentage_used']
+                st.progress(min(usage_percent / 100, 1.0))
+                
+                if usage_percent > 80:
+                    st.warning(f"⚠️ {usage_percent:.0f}% of budget used")
+                elif usage_percent > 50:
+                    st.info(f"ℹ️ {usage_percent:.0f}% of budget used")
+                
+                st.caption(f"API Calls: {usage_stats['api_calls']}")
+            except Exception as e:
+                st.error(f"Error loading usage stats: {e}")
+            
+            st.markdown("---")
         
         # Advanced options
         with st.expander("🔧 Advanced Options"):
@@ -663,9 +873,12 @@ def main() -> None:
                     reddit, sub_name,
                     filter_type=filter_opt,
                     start=start_d, end=end_d,
+                    max_posts=max_posts,
                 )
 
             if not df.empty:
+                original_count = len(df)
+                
                 # Apply content filters
                 if min_score > 0:
                     df = df[df['Score'] >= min_score]
@@ -715,13 +928,53 @@ def main() -> None:
                         df = df[df.apply(matches_keywords, axis=1)]
                         st.info(f"🔍 Filtered by keywords: {', '.join(keywords)}")
 
-                st.success(f"✅ Successfully fetched {len(df)} posts from r/{sub_name}")
+                # Show success message with filter info
+                if len(df) < original_count:
+                    st.success(f"✅ Successfully fetched {original_count} posts from r/{sub_name} → {len(df)} posts after filters")
+                else:
+                    st.success(f"✅ Successfully fetched {len(df)} posts from r/{sub_name}")
                 
                 # Stats dashboard
                 create_stats_dashboard(df)
                 
                 # Category analytics (GummySearch style)
                 create_category_analytics(df)
+                
+                # AI Summary Section
+                if llm_service and llm_service.is_available() and len(df) > 0:
+                    st.markdown('<h3 class="section-header">🧠 AI-Powered Market Intelligence</h3>', unsafe_allow_html=True)
+                    
+                    col1, col2, col3 = st.columns([2, 2, 1])
+                    with col1:
+                        summary_type = st.selectbox(
+                            "Analysis Type:",
+                            ["Comprehensive Market Intel", "Quick Overview", "Strategic Deep-Dive"],
+                            help="Choose the depth of AI analysis"
+                        )
+                    with col2:
+                        st.info(f"💡 Will analyze top {min(len(df), 100)} posts")
+                    with col3:
+                        generate_summary = st.button("🧠 Generate AI Summary", use_container_width=True, type="primary")
+                    
+                    if generate_summary:
+                        with st.spinner("🤖 Analyzing posts with GPT-4o-mini... This may take 15-30 seconds."):
+                            try:
+                                # Estimate cost first
+                                estimated_cost = 0.75 if len(df) <= 50 else 1.50
+                                can_proceed, message = llm_service.cost_tracker.check_budget(estimated_cost)
+                                
+                                if not can_proceed:
+                                    st.error(f"❌ {message}")
+                                    st.info("💡 Tip: Wait for next month or increase your MONTHLY_BUDGET_INR in secrets.toml")
+                                else:
+                                    if "Warning" in message:
+                                        st.warning(message)
+                                    
+                                    batch_summary = llm_service.summarize_post_batch(df, summary_type)
+                                    display_batch_summary(batch_summary)
+                            except Exception as e:
+                                st.error(f"❌ Error generating summary: {e}")
+                                st.info("💡 Check your Azure OpenAI credentials in secrets.toml")
                 
                 # Charts section
                 if show_charts and len(df) > 0:
@@ -878,6 +1131,26 @@ def main() -> None:
                     
                     # Post data table
                     st.dataframe(post_df, use_container_width=True)
+                    
+                    # AI Summary Section for Single Post
+                    if llm_service and llm_service.is_available() and not cmt_df.empty:
+                        st.markdown("---")
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.markdown("### 🧠 AI-Powered Post Analysis")
+                            st.info("💡 Get comprehensive insights from the post and its comments using GPT-4o-mini")
+                        with col2:
+                            generate_post_summary = st.button("🧠 Analyze Post", use_container_width=True, type="primary")
+                        
+                        if generate_post_summary:
+                            with st.spinner("🤖 Analyzing post and comments... This may take 5-10 seconds."):
+                                try:
+                                    post_series = post_df.iloc[0]
+                                    post_summary = llm_service.summarize_single_post(post_series, cmt_df)
+                                    display_single_post_summary(post_summary)
+                                except Exception as e:
+                                    st.error(f"❌ Error generating summary: {e}")
+                                    st.info("💡 Check your Azure OpenAI credentials in secrets.toml")
 
                     # Comments section
                     if not cmt_df.empty:

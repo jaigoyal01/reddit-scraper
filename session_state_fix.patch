@@ -1,0 +1,108 @@
+# Session State Fix for AI Summary Button
+# This file documents the changes needed for proper session state management
+
+CHANGES NEEDED:
+
+1. Add LLM imports at top of main.py (after line 10):
+```python
+# Import LLM service
+try:
+    from llm_service import AzureOpenAIService
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
+    AzureOpenAIService = None
+```
+
+2. Add helper functions after create_stats_dashboard (around line 503):
+```python
+def init_llm_service():
+    """Initialize LLM service for AI summarization"""
+    if not LLM_AVAILABLE or AzureOpenAIService is None:
+        return None
+    try:
+        service = AzureOpenAIService()
+        return service if service.is_available() else None
+    except Exception as e:
+        st.warning(f"⚠️ AI features unavailable: {e}")
+        return None
+
+def display_batch_summary(summary: dict):
+    """Display AI summary for batch of posts"""
+    if "error" in summary:
+        st.error(f"❌ {summary['error']}")
+        return
+    
+    st.markdown("### 🧠 AI-Powered Market Intelligence")
+    
+    # Executive Summary
+    if "executive_summary" in summary:
+        st.markdown("#### 📋 Executive Summary")
+        st.info(summary["executive_summary"])
+    
+    # Market Trends
+    if "market_trends" in summary and summary["market_trends"]:
+        st.markdown("#### 📈 Market Trends")
+        for trend in summary["market_trends"]:
+            st.markdown(f"• {trend}")
+    
+    # Metadata display...
+```
+
+3. Initialize llm_service in main() after reddit init (around line 520):
+```python
+    reddit = init_reddit()
+    llm_service = init_llm_service()
+```
+
+4. Store data in session state after scraping (around line 717):
+```python
+                # Store in session state for persistence
+                st.session_state['scraped_df'] = df
+                st.session_state['subreddit_name'] = sub_name
+                
+                st.success(f"✅ Successfully fetched {len(df)} posts from r/{sub_name}")
+        
+        # Display results from session state
+        if 'scraped_df' in st.session_state:
+            df = st.session_state['scraped_df']
+            sub_name = st.session_state.get('subreddit_name', 'subreddit')
+```
+
+5. Add AI Summary section after category analytics:
+```python
+            # AI Summary Section
+            if llm_service and llm_service.is_available() and len(df) > 0:
+                st.markdown('<h3 class="section-header">🧠 AI-Powered Market Intelligence</h3>', unsafe_allow_html=True)
+                
+                col1, col2, col3 = st.columns([2, 2, 1])
+                with col1:
+                    summary_type = st.selectbox(
+                        "Analysis Type:",
+                        ["Comprehensive Market Intel", "Quick Overview", "Strategic Deep-Dive"],
+                        help="Choose the depth of AI analysis"
+                    )
+                with col2:
+                    st.info(f"💡 Will analyze top {min(len(df), 100)} posts")
+                with col3:
+                    generate_summary = st.button("🧠 Generate AI Summary", use_container_width=True, type="primary")
+                
+                if generate_summary:
+                    with st.spinner("🤖 Analyzing..."):
+                        try:
+                            estimated_cost = 0.75 if len(df) <= 50 else 1.50
+                            can_proceed, message = llm_service.cost_tracker.check_budget(estimated_cost)
+                            
+                            if not can_proceed:
+                                st.error(f"❌ {message}")
+                            else:
+                                if "Warning" in message:
+                                    st.warning(message)
+                                
+                                batch_summary = llm_service.summarize_post_batch(df, summary_type)
+                                display_batch_summary(batch_summary)
+                        except Exception as e:
+                            st.error(f"❌ Error: {e}")
+```
+
+This fixes the issue where clicking the AI summary button would reset the page.

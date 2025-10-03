@@ -1,4 +1,16 @@
-# Reddit Data Scraper 🚀
+# Redd## ✨ Features
+
+- **🔍 Subreddit Scraping**: Extract posts from any subreddit with advanced filtering options
+- **🔗 Single Post Analysis**: Deep dive into specific posts and their entire comment threads
+- **🧠 AI-Powered Summarization**: GPT-4o-mini integration for actionable business insights (NEW!)
+- **📊 Real-time Analytics**: Interactive charts and visualizations using Plotly
+- **🎯 Advanced Filtering**: Filter by date range, score, comments, awards, NSFW content, and more
+- **🔎 Keyword Search**: Search posts and comments by keywords with flexible matching options
+- **🏷️ Smart Categorization**: AI-powered content classification (Pain Points, Solution Requests, etc.)
+- **📥 Multiple Export Formats**: Download data as CSV or JSON
+- **🌙 Modern Dark Theme**: Beautiful, responsive UI with custom CSS styling
+- **⚡ Fast & Efficient**: Optimized data fetching with caching for better performance
+- **💰 Cost Control**: Built-in budget tracking for AI features (~₹0.75 per 100 posts)aper 🚀
 
 A modern, interactive Reddit data scraper built with Streamlit. Extract posts, comments, and analytics from any subreddit or specific Reddit post with a beautiful, responsive interface.
 
@@ -10,7 +22,9 @@ A modern, interactive Reddit data scraper built with Streamlit. Extract posts, c
 - **🔗 Single Post Analysis**: Deep dive into specific posts and their entire comment threads
 - **📊 Real-time Analytics**: Interactive charts and visualizations using Plotly
 - **🎯 Advanced Filtering**: Filter by date range, score, comments, awards, NSFW content, and more
-- **📥 Multiple Export Formats**: Download data as CSV or JSON
+- **� Keyword Search**: Search posts and comments by keywords with flexible matching options
+- **🏷️ Smart Categorization**: AI-powered content classification (Pain Points, Solution Requests, etc.)
+- **�📥 Multiple Export Formats**: Download data as CSV or JSON
 - **🌙 Modern Dark Theme**: Beautiful, responsive UI with custom CSS styling
 - **⚡ Fast & Efficient**: Optimized data fetching with caching for better performance
 
