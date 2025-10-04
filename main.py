@@ -530,9 +530,205 @@ def display_single_post_summary(summary: dict):
         return
     
     st.markdown("### 🧠 AI-Powered Post Analysis")
+
+    # New preferred rendering: direct markdown sections produced by model
+    if "formatted_markdown" in summary:
+        view_mode = st.radio(
+            "View Mode",
+            ["Rendered", "Raw Markdown", "Raw JSON"],
+            horizontal=True,
+            key="single_summary_markdown_mode"
+        )
+
+        if view_mode == "Rendered":
+            st.markdown(summary["formatted_markdown"], unsafe_allow_html=False)
+        elif view_mode == "Raw Markdown":
+            with st.expander("Markdown Output", expanded=True):
+                st.code(summary["formatted_markdown"], language="markdown")
+        else:  # Raw JSON
+            with st.expander("Full JSON", expanded=True):
+                st.json(summary)
+
+        # Metadata display
+        meta = summary.get("metadata", {})
+        if meta:
+            with st.expander("📊 Analysis Details"):
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    if meta.get("tokens"):
+                        st.metric("Tokens", meta["tokens"].get("total", "N/A"))
+                with col2:
+                    if meta.get("cost_inr") is not None:
+                        st.metric("Cost (INR)", f"₹{meta['cost_inr']:.4f}")
+                with col3:
+                    if meta.get("processing_time") is not None:
+                        st.metric("Time", f"{meta['processing_time']:.2f}s")
+                with col4:
+                    if meta.get("dynamic_output_token_limit"):
+                        st.metric("Out Tokens Cap", meta.get("dynamic_output_token_limit"))
+                if meta.get("prompt_preview"):
+                    with st.expander("🔍 Prompt Sent to LLM"):
+                        st.code(meta["prompt_preview"], language="markdown")
+                flags = []
+                if meta.get("fallback_mode"): flags.append("fallback_mode")
+                if meta.get("sanitized_post"): flags.append("sanitized_post")
+                if meta.get("sanitized_comments"): flags.append("sanitized_comments")
+                if flags:
+                    st.caption("Flags: " + ", ".join(flags))
+        return
+
+    # Provide a display style toggle (defaults to narrative if advanced schema present)
+    advanced_schema = 'problem' in summary and 'key_takeaway' in summary
+    default_mode = 'Narrative' if advanced_schema else 'Structured'
+    display_mode = st.radio(
+        "Display Style",
+        options=["Narrative", "Structured", "Raw JSON"],
+        index=["Narrative", "Structured", "Raw JSON"].index(default_mode),
+        horizontal=True,
+        key="single_summary_display_mode"
+    )
+
+    # Advanced narrative rendering (ChatGPT-like) when new schema is present
+    if advanced_schema and display_mode == 'Narrative':
+        # Problem & Context
+        if summary.get('problem'):
+            st.markdown("#### 🧩 Core Problem")
+            st.write(summary['problem'])
+        if summary.get('context'):
+            st.markdown("#### 📌 Context")
+            st.write(summary['context'])
+
+        cols_top = st.columns(2)
+        with cols_top[0]:
+            if summary.get('underlying_patterns'):
+                st.markdown("#### 🧠 Underlying Patterns")
+                for p in summary['underlying_patterns'][:8]:
+                    st.markdown(f"• {p}")
+            if summary.get('psychological_barriers'):
+                st.markdown("#### 🚧 Psychological Barriers")
+                for b in summary['psychological_barriers'][:8]:
+                    st.markdown(f"• {b}")
+        with cols_top[1]:
+            if summary.get('risks_of_inaction'):
+                st.markdown("#### ⚠️ Risks of Inaction")
+                for r in summary['risks_of_inaction'][:8]:
+                    st.markdown(f"• {r}")
+            if summary.get('common_counterpoints'):
+                st.markdown("#### ↔️ Common Counterpoints")
+                for c in summary['common_counterpoints'][:10]:
+                    st.markdown(f"• {c}")
+
+        # Suggestions & Actions
+        if summary.get('useful_suggestions'):
+            st.markdown("#### 💡 Useful Suggestions")
+            for s in summary['useful_suggestions'][:15]:
+                st.markdown(f"• {s}")
+
+        if summary.get('actionable_steps') and isinstance(summary['actionable_steps'], list):
+            st.markdown("#### ✅ Actionable Steps")
+            for step in summary['actionable_steps'][:10]:
+                if isinstance(step, dict):
+                    line = f"- **{step.get('step','')}**"
+                    details = []
+                    if step.get('rationale'): details.append(step['rationale'])
+                    if step.get('effort'): details.append(f"Effort: {step['effort']}")
+                    if step.get('impact'): details.append(f"Impact: {step['impact']}")
+                    if details:
+                        line += " — " + " | ".join(details)
+                    st.markdown(line)
+                else:
+                    st.markdown(f"- {step}")
+
+        # Resources
+        if summary.get('resource_mentions'):
+            st.markdown("#### 📚 Resource Mentions")
+            for r in summary['resource_mentions'][:10]:
+                if isinstance(r, dict):
+                    st.markdown(f"• {r.get('type','resource').title()}: {r.get('title','')} — {r.get('mentioned_as','')}")
+                else:
+                    st.markdown(f"• {r}")
+
+        # Quotes
+        if summary.get('representative_quotes'):
+            with st.expander("💬 Representative Quotes"):
+                for q in summary['representative_quotes'][:12]:
+                    st.markdown(f"> {q}")
+
+        # Key Takeaway
+        if summary.get('key_takeaway'):
+            st.markdown("#### 🎯 Key Takeaway")
+            st.success(summary['key_takeaway'])
+
+        # Confidence
+        if summary.get('confidence'):
+            st.caption(f"Confidence: {summary['confidence']}")
+
+        # Metadata + Debug
+        if "metadata" in summary:
+            with st.expander("📊 Analysis Details"):
+                meta = summary["metadata"]
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    if "tokens" in meta:
+                        st.metric("Tokens Used", meta["tokens"].get("total", "N/A"))
+                with col2:
+                    if "cost_inr" in meta:
+                        st.metric("Cost (INR)", f"₹{meta['cost_inr']:.4f}")
+                with col3:
+                    if "processing_time" in meta:
+                        st.metric("Time", f"{meta['processing_time']:.2f}s")
+                if meta.get("prompt_preview"):
+                    with st.expander("🔍 Prompt Sent to LLM"):
+                        st.code(meta["prompt_preview"])
+        if display_mode == 'Raw JSON':
+            with st.expander("🧪 Full Response JSON", expanded=True):
+                st.json(summary)
+        else:
+            with st.expander("🧪 Full Response JSON"):
+                st.json(summary)
+        return
+
+    # If model returned raw text instead of structured JSON (fallback or parse failure)
+    if "executive_summary" not in summary and "raw_analysis" in summary:
+        with st.expander("📝 Raw AI Output (Unstructured)", expanded=True):
+            st.write(summary["raw_analysis"])
+            if summary.get("note"):
+                st.caption(summary["note"])
+            if summary.get("metadata", {}).get("fallback_mode"):
+                st.warning("Displayed result is from a fallback prompt due to content filtering.")
+        # Show metadata if present
+        if "metadata" in summary:
+            with st.expander("📊 Analysis Details"):
+                meta = summary["metadata"]
+                if meta.get("prompt_preview"):
+                    with st.expander("🔍 Prompt Sent to LLM", expanded=False):
+                        st.code(meta["prompt_preview"], language="markdown")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    if "tokens" in meta:
+                        st.metric("Tokens Used", meta["tokens"].get("total", "N/A"))
+                with col2:
+                    if "cost_inr" in meta:
+                        st.metric("Cost (INR)", f"₹{meta['cost_inr']:.4f}")
+                with col3:
+                    if "processing_time" in meta:
+                        st.metric("Processing Time", f"{meta['processing_time']:.2f}s")
+                # Extra flags
+                flags = []
+                if meta.get("fallback_mode"): flags.append("fallback_mode")
+                if meta.get("sanitized_post"): flags.append("sanitized_post")
+                if meta.get("sanitized_comments"): flags.append("sanitized_comments")
+                if flags:
+                    st.caption("Flags: " + ", ".join(flags))
+        # Optionally show full JSON for debugging
+        with st.expander("🧪 Full Response JSON"):
+            st.json(summary)
+        return
     
-    # Executive Summary
-    if "executive_summary" in summary:
+    if display_mode == 'Narrative' and "executive_summary" in summary:
+        st.markdown("#### 📋 Executive Summary")
+        st.info(summary["executive_summary"])
+    elif display_mode == 'Structured' and "executive_summary" in summary:
         st.markdown("#### 📋 Executive Summary")
         st.info(summary["executive_summary"])
     
@@ -581,9 +777,12 @@ def display_single_post_summary(summary: dict):
         st.markdown(summary["community_consensus"])
     
     # Metadata
-    if "metadata" in summary:
+    if "metadata" in summary and display_mode != 'Raw JSON':
         with st.expander("📊 Analysis Details"):
             meta = summary["metadata"]
+            if meta.get("prompt_preview"):
+                with st.expander("🔍 Prompt Sent to LLM", expanded=False):
+                    st.code(meta["prompt_preview"], language="markdown")
             col1, col2, col3 = st.columns(3)
             with col1:
                 if "tokens" in meta:
@@ -594,6 +793,20 @@ def display_single_post_summary(summary: dict):
             with col3:
                 if "processing_time" in meta:
                     st.metric("Processing Time", f"{meta['processing_time']:.2f}s")
+            # Flags (fallback / sanitization)
+            flags = []
+            if meta.get("fallback_mode"): flags.append("fallback_mode")
+            if meta.get("sanitized_post"): flags.append("sanitized_post")
+            if meta.get("sanitized_comments"): flags.append("sanitized_comments")
+            if flags:
+                st.caption("Flags: " + ", ".join(flags))
+    # Raw JSON view (if chosen explicitly)
+    if display_mode == 'Raw JSON':
+        with st.expander("🧪 Full Response JSON", expanded=True):
+            st.json(summary)
+    else:
+        with st.expander("🧪 Full Response JSON"):
+            st.json(summary)
 
 def display_batch_summary(summary: dict):
     """Display AI summary for batch of posts"""
@@ -603,6 +816,30 @@ def display_batch_summary(summary: dict):
     
     st.markdown("### 🧠 AI-Powered Market Intelligence")
     
+    # If model returned raw text instead of structured JSON
+    if "executive_summary" not in summary and "raw_analysis" in summary:
+        with st.expander("📝 Raw AI Output (Unstructured)", expanded=True):
+            st.write(summary["raw_analysis"])
+            st.caption("Model response couldn't be parsed as JSON. You can refine the prompt later to improve structure.")
+        # Still show metadata if available
+        if "metadata" in summary:
+            with st.expander("📊 Analysis Details"):
+                meta = summary["metadata"]
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    if "posts_analyzed" in meta:
+                        st.metric("Posts Analyzed", meta["posts_analyzed"])
+                with col2:
+                    if "tokens" in meta:
+                        st.metric("Tokens Used", meta["tokens"].get("total", "N/A"))
+                with col3:
+                    if "cost_inr" in meta:
+                        st.metric("Cost (INR)", f"₹{meta['cost_inr']:.4f}")
+                with col4:
+                    if "processing_time" in meta:
+                        st.metric("Time", f"{meta['processing_time']:.2f}s")
+        return
+
     # Executive Summary
     if "executive_summary" in summary:
         st.markdown("#### 📋 Executive Summary")
@@ -878,7 +1115,6 @@ def main() -> None:
 
             if not df.empty:
                 original_count = len(df)
-                
                 # Apply content filters
                 if min_score > 0:
                     df = df[df['Score'] >= min_score]
@@ -892,19 +1128,16 @@ def main() -> None:
                     df = df[~df['Spoiler']]
                 if oc_only:
                     df = df[df['Is Original Content']]
-                
-                # Apply category filters (GummySearch style)
+                # Category filters
                 if selected_categories:
                     df = df[df['Category'].isin(selected_categories)]
                 if min_confidence > 0:
                     df = df[df['Category Confidence'] >= min_confidence]
-                
-                # Apply keyword filters
+                # Keyword filters
                 if search_keywords and search_keywords.strip():
                     keywords = [k.strip() for k in search_keywords.split(',') if k.strip()]
                     if keywords:
                         def matches_keywords(row):
-                            # Determine search text based on user selection
                             search_text = ""
                             if "Both" in search_in or not search_in:
                                 search_text = f"{row['Title']} {row['Post Text']}"
@@ -912,169 +1145,144 @@ def main() -> None:
                                 search_text = row['Title']
                             elif "Post Text" in search_in:
                                 search_text = row['Post Text']
-                            
                             if not case_sensitive:
                                 search_text = search_text.lower()
-                                keywords_to_match = [k.lower() for k in keywords]
+                                kws = [k.lower() for k in keywords]
                             else:
-                                keywords_to_match = keywords
-                            
-                            # Check match type
+                                kws = keywords
                             if match_type == "All keywords (AND)":
-                                return all(keyword in search_text for keyword in keywords_to_match)
-                            else:  # Any keyword (OR)
-                                return any(keyword in search_text for keyword in keywords_to_match)
-                        
+                                return all(k in search_text for k in kws)
+                            return any(k in search_text for k in kws)
                         df = df[df.apply(matches_keywords, axis=1)]
                         st.info(f"🔍 Filtered by keywords: {', '.join(keywords)}")
+                # Persist to session
+                st.session_state['posts_df'] = df
+                st.session_state['posts_original_count'] = original_count
+                st.session_state.pop('batch_summary', None)  # reset previous summary
+                st.success("✅ Posts scraped. Scroll down to view analytics and generate AI summary.")
 
-                # Show success message with filter info
-                if len(df) < original_count:
-                    st.success(f"✅ Successfully fetched {original_count} posts from r/{sub_name} → {len(df)} posts after filters")
-                else:
-                    st.success(f"✅ Successfully fetched {len(df)} posts from r/{sub_name}")
-                
-                # Stats dashboard
-                create_stats_dashboard(df)
-                
-                # Category analytics (GummySearch style)
-                create_category_analytics(df)
-                
-                # AI Summary Section
-                if llm_service and llm_service.is_available() and len(df) > 0:
-                    st.markdown('<h3 class="section-header">🧠 AI-Powered Market Intelligence</h3>', unsafe_allow_html=True)
-                    
-                    col1, col2, col3 = st.columns([2, 2, 1])
-                    with col1:
-                        summary_type = st.selectbox(
-                            "Analysis Type:",
-                            ["Comprehensive Market Intel", "Quick Overview", "Strategic Deep-Dive"],
-                            help="Choose the depth of AI analysis"
-                        )
-                    with col2:
-                        st.info(f"💡 Will analyze top {min(len(df), 100)} posts")
-                    with col3:
-                        generate_summary = st.button("🧠 Generate AI Summary", use_container_width=True, type="primary")
-                    
-                    if generate_summary:
-                        with st.spinner("🤖 Analyzing posts with GPT-4o-mini... This may take 15-30 seconds."):
-                            try:
-                                # Estimate cost first
-                                estimated_cost = 0.75 if len(df) <= 50 else 1.50
-                                can_proceed, message = llm_service.cost_tracker.check_budget(estimated_cost)
-                                
-                                if not can_proceed:
-                                    st.error(f"❌ {message}")
-                                    st.info("💡 Tip: Wait for next month or increase your MONTHLY_BUDGET_INR in secrets.toml")
-                                else:
-                                    if "Warning" in message:
-                                        st.warning(message)
-                                    
-                                    batch_summary = llm_service.summarize_post_batch(df, summary_type)
-                                    display_batch_summary(batch_summary)
-                            except Exception as e:
-                                st.error(f"❌ Error generating summary: {e}")
-                                st.info("💡 Check your Azure OpenAI credentials in secrets.toml")
-                
-                # Charts section
-                if show_charts and len(df) > 0:
-                    st.markdown('<h3 class="section-header">📊 Analytics</h3>', unsafe_allow_html=True)
-                    
-                    chart_col1, chart_col2 = st.columns(2)
-                    
-                    with chart_col1:
-                        # Score distribution
-                        fig_score = px.histogram(
-                            df, x='Score', nbins=20,
-                            title="Score Distribution",
-                            color_discrete_sequence=['#FF4B4B']
-                        )
-                        fig_score.update_layout(
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            font_color='white'
-                        )
-                        st.plotly_chart(fig_score, use_container_width=True)
-                    
-                    with chart_col2:
-                        # Posts over time
-                        df['Date'] = pd.to_datetime(df['Created UTC']).dt.date
-                        posts_per_day = df.groupby('Date').size().reset_index(name='Posts')
-                        fig_time = px.line(
-                            posts_per_day, x='Date', y='Posts',
-                            title="Posts Over Time",
-                            color_discrete_sequence=['#00D4FF']
-                        )
-                        fig_time.update_layout(
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            font_color='white'
-                        )
-                        st.plotly_chart(fig_time, use_container_width=True)
+        # Retrieve persisted DF if available (for reruns after button clicks)
+        df = st.session_state.get('posts_df')
+        if df is not None and not df.empty:
+            original_count = st.session_state.get('posts_original_count', len(df))
+            if len(df) < original_count:
+                st.success(f"✅ Successfully fetched {original_count} posts from r/{sub_name} → {len(df)} posts after filters")
+            else:
+                st.success(f"✅ Successfully fetched {len(df)} posts from r/{sub_name}")
 
-                # Data table with enhanced display
-                st.markdown('<h3 class="section-header">📋 Post Data</h3>', unsafe_allow_html=True)
-                st.info("💡 **Tip:** 'Post Text' column contains the full text content of each post. Use the column selector below to customize your view.")
-                
-                # Column selection
-                with st.expander("🔧 Customize Columns", expanded=False):
-                    all_columns = df.columns.tolist()
-                    default_columns = ['Title', 'Post Text', 'Category', 'Author', 'Score', 'Total Comments', 'Created UTC', 'Permalink']
-                    selected_columns = st.multiselect(
-                        "Select columns to display:",
-                        all_columns,
-                        default=[col for col in default_columns if col in all_columns]
-                    )
-                
-                display_df = df[selected_columns] if selected_columns else df
-                
-                # Enhanced dataframe display with category styling
-                if 'Category' in display_df.columns:
-                    # Create a copy for styling
-                    styled_df = display_df.copy()
-                    
-                    # Add category styling
-                    def style_category(val):
-                        color = get_category_color(val)
-                        icon = get_category_icon(val)
-                        return f"background-color: {color}20; color: {color}; font-weight: bold;"
-                    
-                    # Apply styling to Category column
-                    styled_df = styled_df.style.applymap(style_category, subset=['Category'])
-                    st.dataframe(styled_df, use_container_width=True, height=400)
-                else:
-                    st.dataframe(display_df, use_container_width=True, height=400)
+            # Stats & analytics
+            create_stats_dashboard(df)
+            create_category_analytics(df)
 
-                # Download section
-                col1, col2, col3 = st.columns(3)
+            # AI Summary Section
+            if llm_service and llm_service.is_available() and len(df) > 0:
+                st.markdown('<h3 class="section-header">🧠 AI-Powered Market Intelligence</h3>', unsafe_allow_html=True)
+                col1, col2, col3 = st.columns([2, 2, 1])
                 with col1:
+                    summary_type = st.selectbox(
+                        "Analysis Type:",
+                        ["Comprehensive Market Intel", "Quick Overview", "Strategic Deep-Dive"],
+                        help="Choose the depth of AI analysis",
+                        key="summary_type_select"
+                    )
+                with col2:
+                    st.info(f"💡 Will analyze top {min(len(df), 100)} posts")
+                with col3:
+                    generate_summary = st.button("🧠 Generate AI Summary", use_container_width=True, type="primary", key="generate_summary_btn")
+
+                # Display existing summary if present
+                if 'batch_summary' in st.session_state and st.session_state['batch_summary']:
+                    display_batch_summary(st.session_state['batch_summary'])
+
+                if generate_summary:
+                    with st.spinner("🤖 Analyzing posts with GPT-4o-mini... This may take 15-30 seconds."):
+                        try:
+                            estimated_cost = 0.75 if len(df) <= 50 else 1.50
+                            can_proceed, message = llm_service.cost_tracker.check_budget(estimated_cost)
+                            if not can_proceed:
+                                st.error(f"❌ {message}")
+                                st.info("💡 Tip: Wait for next month or increase your MONTHLY_BUDGET_INR in secrets.toml")
+                            else:
+                                if "Warning" in message:
+                                    st.warning(message)
+                                batch_summary = llm_service.summarize_post_batch(df, summary_type)
+                                st.session_state['batch_summary'] = batch_summary
+                                display_batch_summary(batch_summary)
+                        except Exception as e:
+                            st.error(f"❌ Error generating summary: {e}")
+                            st.info("💡 Check your Azure OpenAI credentials in secrets.toml")
+
+            # Charts section
+            if show_charts and len(df) > 0:
+                st.markdown('<h3 class="section-header">📊 Analytics</h3>', unsafe_allow_html=True)
+                chart_col1, chart_col2 = st.columns(2)
+                with chart_col1:
+                    fig_score = px.histogram(
+                        df, x='Score', nbins=20,
+                        title="Score Distribution",
+                        color_discrete_sequence=['#FF4B4B']
+                    )
+                    fig_score.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                    st.plotly_chart(fig_score, use_container_width=True)
+                with chart_col2:
+                    df['Date'] = pd.to_datetime(df['Created UTC']).dt.date
+                    posts_per_day = df.groupby('Date').size().reset_index(name='Posts')
+                    fig_time = px.line(posts_per_day, x='Date', y='Posts', title="Posts Over Time", color_discrete_sequence=['#00D4FF'])
+                    fig_time.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                    st.plotly_chart(fig_time, use_container_width=True)
+
+            # Data table & downloads
+            st.markdown('<h3 class="section-header">📋 Post Data</h3>', unsafe_allow_html=True)
+            st.info("💡 **Tip:** 'Post Text' column contains the full text content of each post. Use the column selector below to customize your view.")
+            with st.expander("🔧 Customize Columns", expanded=False):
+                all_columns = df.columns.tolist()
+                default_columns = ['Title', 'Post Text', 'Category', 'Author', 'Score', 'Total Comments', 'Created UTC', 'Permalink']
+                selected_columns = st.multiselect(
+                    "Select columns to display:",
+                    all_columns,
+                    default=[col for col in default_columns if col in all_columns],
+                    key="columns_multiselect"
+                )
+            display_df = df[selected_columns] if selected_columns else df
+            if 'Category' in display_df.columns:
+                styled_df = display_df.copy()
+                def style_category(val):
+                    color = get_category_color(val)
+                    return f"background-color: {color}20; color: {color}; font-weight: bold;"
+                styled_df = styled_df.style.applymap(style_category, subset=['Category'])
+                st.dataframe(styled_df, use_container_width=True, height=400)
+            else:
+                st.dataframe(display_df, use_container_width=True, height=400)
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.download_button(
+                    "📥 Download Full CSV",
+                    df.to_csv(index=False).encode(),
+                    f"{sub_name}_posts_full.csv",
+                    "text/csv",
+                    use_container_width=True
+                )
+            with col2:
+                if selected_columns:
                     st.download_button(
-                        "📥 Download Full CSV",
-                        df.to_csv(index=False).encode(),
-                        f"{sub_name}_posts_full.csv",
+                        "📥 Download Selected CSV",
+                        display_df.to_csv(index=False).encode(),
+                        f"{sub_name}_posts_selected.csv",
                         "text/csv",
                         use_container_width=True
                     )
-                with col2:
-                    if selected_columns:
-                        st.download_button(
-                            "📥 Download Selected CSV",
-                            display_df.to_csv(index=False).encode(),
-                            f"{sub_name}_posts_selected.csv",
-                            "text/csv",
-                            use_container_width=True
-                        )
-                with col3:
-                    # JSON download option
-                    st.download_button(
-                        "📥 Download JSON",
-                        df.to_json(orient='records', date_format='iso').encode(),
-                        f"{sub_name}_posts.json",
-                        "application/json",
-                        use_container_width=True
-                    )
-            else:
-                st.error("❌ No posts found. Please check the subreddit name and try again.")
+            with col3:
+                st.download_button(
+                    "📥 Download JSON",
+                    df.to_json(orient='records', date_format='iso').encode(),
+                    f"{sub_name}_posts.json",
+                    "application/json",
+                    use_container_width=True
+                )
+        else:
+            # No posts persisted in session
+            st.info("ℹ️ Use 'Start Scraping' to fetch posts.")
 
     # ── Single-thread mode ─────────────────────────────────────────────────────
     else:
@@ -1106,12 +1314,31 @@ def main() -> None:
             )
             comment_case_sensitive = st.checkbox("Case Sensitive (Comments)", value=False)
 
+        # Persisted single post data (if previously scraped)
+        persisted_post_df = st.session_state.get('single_post_df')
+        persisted_cmt_df = st.session_state.get('single_comments_df')
+        persisted_summary = st.session_state.get('single_post_summary')
+
         if st.button("🚀 Scrape Post & Comments", use_container_width=True):
             if url:
                 with st.spinner("📥 Fetching submission & comments..."):
                     post_df, cmt_df = get_post_by_url(reddit, url)
-
                 if not post_df.empty:
+                    st.session_state['single_post_df'] = post_df
+                    st.session_state['single_comments_df'] = cmt_df
+                    st.session_state.pop('single_post_summary', None)
+                    persisted_post_df, persisted_cmt_df = post_df, cmt_df
+                else:
+                    st.error("❌ Failed to fetch post data. Please check the URL and try again.")
+            else:
+                st.warning("⚠️ Please enter a valid Reddit post URL.")
+
+        # Use persisted data if available
+        if persisted_post_df is not None and not persisted_post_df.empty:
+            post_df = persisted_post_df
+            cmt_df = persisted_cmt_df if persisted_cmt_df is not None else pd.DataFrame()
+
+            if not post_df.empty:
                     # Post details section
                     st.markdown('<h3 class="section-header">📄 Post Details</h3>', unsafe_allow_html=True)
                     
@@ -1142,11 +1369,16 @@ def main() -> None:
                         with col2:
                             generate_post_summary = st.button("🧠 Analyze Post", use_container_width=True, type="primary")
                         
+                        # Display existing summary if present
+                        if persisted_summary:
+                            display_single_post_summary(persisted_summary)
+
                         if generate_post_summary:
                             with st.spinner("🤖 Analyzing post and comments... This may take 5-10 seconds."):
                                 try:
                                     post_series = post_df.iloc[0]
                                     post_summary = llm_service.summarize_single_post(post_series, cmt_df)
+                                    st.session_state['single_post_summary'] = post_summary
                                     display_single_post_summary(post_summary)
                                 except Exception as e:
                                     st.error(f"❌ Error generating summary: {e}")
@@ -1273,10 +1505,8 @@ def main() -> None:
                                 "application/json",
                                 use_container_width=True
                             )
-                else:
-                    st.error("❌ Failed to fetch post data. Please check the URL and try again.")
-            else:
-                st.warning("⚠️ Please enter a valid Reddit post URL.")
+        elif url:
+            st.info("🔎 Click 'Scrape Post & Comments' to fetch the post.")
 
 if __name__ == "__main__":
     main()
