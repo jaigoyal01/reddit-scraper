@@ -1,224 +1,98 @@
-# Redd## ✨ Features
+# Reddit Scraper 🚀
 
-- **🔍 Subreddit Scraping**: Extract posts from any subreddit with advanced filtering options
-- **🔗 Single Post Analysis**: Deep dive into specific posts and their entire comment threads
-- **🧠 AI-Powered Summarization**: GPT-4o-mini integration for actionable business insights (NEW!)
-- **📊 Real-time Analytics**: Interactive charts and visualizations using Plotly
-- **🎯 Advanced Filtering**: Filter by date range, score, comments, awards, NSFW content, and more
-- **🔎 Keyword Search**: Search posts and comments by keywords with flexible matching options
-- **🏷️ Smart Categorization**: AI-powered content classification (Pain Points, Solution Requests, etc.)
-- **📥 Multiple Export Formats**: Download data as CSV or JSON
-- **🌙 Modern Dark Theme**: Beautiful, responsive UI with custom CSS styling
-- **⚡ Fast & Efficient**: Optimized data fetching with caching for better performance
-- **💰 Cost Control**: Built-in budget tracking for AI features (~₹0.75 per 100 posts)aper 🚀
-
-A modern, interactive Reddit data scraper built with Streamlit. Extract posts, comments, and analytics from any subreddit or specific Reddit post with a beautiful, responsive interface.
+A modern, interactive Reddit data scraper with AI-powered insights. Extract posts, comments, and analytics from any subreddit with a beautiful, responsive interface.
 
 ![Reddit Scraper](reddit-logo.png)
 
+## 🌐 Live Demo
+
+**Try it now**: [https://reddit-scraper-with-llm.streamlit.app/](https://reddit-scraper-with-llm.streamlit.app/)
+
+## 🔍 Alternative & Inspiration
+[**GummySearch**](https://gummysearch.com/)
+
 ## ✨ Features
 
-- **🔍 Subreddit Scraping**: Extract posts from any subreddit with advanced filtering options
-- **🔗 Single Post Analysis**: Deep dive into specific posts and their entire comment threads
-- **📊 Real-time Analytics**: Interactive charts and visualizations using Plotly
-- **🎯 Advanced Filtering**: Filter by date range, score, comments, awards, NSFW content, and more
-- **� Keyword Search**: Search posts and comments by keywords with flexible matching options
-- **🏷️ Smart Categorization**: AI-powered content classification (Pain Points, Solution Requests, etc.)
-- **�📥 Multiple Export Formats**: Download data as CSV or JSON
-- **🌙 Modern Dark Theme**: Beautiful, responsive UI with custom CSS styling
-- **⚡ Fast & Efficient**: Optimized data fetching with caching for better performance
+- **🔍 Subreddit Scraping**: Extract posts from any subreddit with advanced filtering
+- **🔗 Single Post Analysis**: Deep dive into specific posts and comment threads
+- **🧠 AI-Powered Summarization**: GPT-4o integration for actionable business insights
+- **📊 Interactive Analytics**: Real-time charts and visualizations using Plotly
+- **🎯 Advanced Filtering**: Date ranges, scores, keywords, NSFW content, and more
+- **🏷️ Smart Categorization**: AI-powered content classification (Pain Points, Solutions, etc.)
+- **📥 Data Export**: Copy-to-clipboard JSON and CSV downloads
+- **🌙 Modern UI**: Beautiful dark theme with responsive design
+- **💰 Cost Control**: Built-in budget tracking for AI features (₹500/month limit)
 
-## 🚀 Quick Start (Streamlit Cloud)
+## 🚀 Quick Start
 
-### 1. Deploy to Streamlit Cloud
+### 1. Use the Live App
+Visit [https://reddit-scraper-with-llm.streamlit.app/](https://reddit-scraper-with-llm.streamlit.app/) - no setup required!
 
+### 2. Deploy Your Own
 [![Deploy to Streamlit Cloud](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/)
 
-1. **Fork this repository** to your GitHub account
-2. **Get Reddit API credentials**:
-   - Go to [Reddit Apps](https://www.reddit.com/prefs/apps)
-   - Click "Create App" or "Create Another App"
-   - Choose "script" as the app type
-   - Note down your `client_id` and `client_secret`
-3. **Deploy to Streamlit Cloud**:
-   - Go to [share.streamlit.io](https://share.streamlit.io/)
-   - Click "New app" and connect your GitHub repository
-   - Set the main file path to `main.py`
-   - Configure secrets (see step 4)
-4. **Configure App Secrets**:
-   - In your Streamlit Cloud app dashboard, go to Settings > Secrets
-   - Add your Reddit API credentials:
-   ```toml
-   REDDIT_CLIENT_ID = "your_client_id_here"
-   REDDIT_CLIENT_SECRET = "your_client_secret_here"  
-   REDDIT_USER_AGENT = "YourAppName/1.0 by /u/yourusername"
-   ```
-5. **Deploy your app!** 🚀
+1. Fork this repository
+2. Get Reddit API credentials from [Reddit Apps](https://www.reddit.com/prefs/apps)
+3. Deploy to [Streamlit Cloud](https://share.streamlit.io/)
+4. Configure secrets with your Reddit API credentials
 
-Your Reddit scraper will be live and accessible to everyone!
-
-## 🛠️ Local Development
-
-### Prerequisites
-
-- Python 3.8 or higher
-- Reddit API credentials (see above)
-
-### Installation
-
-1. **Clone the repository**:
+### 3. Run Locally
 ```bash
-   git clone https://github.com/pakagronglb/reddit-scraper.git
+git clone https://github.com/jaigoyal01/reddit-scraper.git
 cd reddit-scraper
-```
-
-2. **Create a virtual environment**:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. **Install dependencies**:
-```bash
 pip install -r requirements.txt
-```
-
-4. **Set up environment variables**:
-   - Copy `.streamlit/secrets.toml` to create your local secrets file
-   - Or create a `.env` file with:
-```env
-   REDDIT_CLIENT_ID=your_client_id_here
-   REDDIT_CLIENT_SECRET=your_client_secret_here
-   REDDIT_USER_AGENT=YourAppName/1.0 by /u/yourusername
-   ```
-
-5. **Run the application**:
-```bash
 streamlit run main.py
 ```
 
-The app will be available at `http://localhost:8501`
+## 📋 Configuration
 
-## 📋 Usage Guide
+Add these secrets in Streamlit Cloud or `.streamlit/secrets.toml`:
 
-### Subreddit Scraping
+```toml
+REDDIT_CLIENT_ID = "your_client_id"
+REDDIT_CLIENT_SECRET = "your_client_secret"
+REDDIT_USER_AGENT = "RedditScraper/1.0 by /u/yourusername"
 
-1. **Enter Subreddit Name**: Type the subreddit name (without r/)
-2. **Set Time Filter**: Choose from "All", "Last Week", "Last Month", "Last Year", or custom date range
-3. **Configure Filters**: Set minimum score, comments, awards, and content preferences
-4. **Start Scraping**: Click the "Start Scraping" button
-5. **View Results**: Explore the data with interactive charts and tables
-6. **Download Data**: Export your results as CSV or JSON
+# Optional: For AI features
+AZURE_OPENAI_API_KEY = "your_azure_key"
+AZURE_OPENAI_ENDPOINT = "your_azure_endpoint"
+AZURE_OPENAI_DEPLOYMENT_NAME = "gpt-4o"
+```
 
-### Single Post Analysis
+## 🔧 Usage
 
-1. **Enter Post URL**: Paste the full Reddit post URL
-2. **Configure Options**: Set comment filtering and sorting preferences
-3. **Scrape Post**: Click "Scrape Post & Comments"
-4. **Analyze Results**: Review post metrics and comment analytics
-5. **Export Data**: Download post and comment data separately
+### Subreddit Analysis
+1. Enter subreddit name (without r/)
+2. Set filters (date range, scores, keywords)
+3. View analytics and export data
 
-## 🔧 Configuration
+### Single Post Analysis  
+1. Paste Reddit post URL
+2. Analyze post and comment threads
+3. Get AI-powered insights and summaries
 
-### Streamlit Configuration
+## 🛠️ Tech Stack
 
-The app includes optimized Streamlit configuration in `.streamlit/config.toml`:
-
-- **Theme**: Custom dark theme with Reddit-inspired colors
-- **Performance**: Optimized caching and data handling
-- **Security**: XSRF protection and secure headers
-
-### Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `REDDIT_CLIENT_ID` | Reddit API client ID | `abcd1234efgh5678` |
-| `REDDIT_CLIENT_SECRET` | Reddit API client secret | `your_secret_key_here` |
-| `REDDIT_USER_AGENT` | User agent string | `RedditScraper/1.0 by /u/username` |
-
-## 📊 Data Export
-
-The scraper provides comprehensive data export options:
-
-### Post Data Fields
-- ID, Title, Post Text, Subreddit
-- Author, Created UTC, Score, Up-vote Ratio
-- Total Comments, Total Awards, Flair
-- Content flags (NSFW, Spoiler, OC)
-- URLs and Permalinks
-
-### Comment Data Fields
-- Comment ID, Parent ID, Comment Text
-- Author, Score, Created UTC
-- Permalink, Submitter Status
-
-## 🔒 Privacy & Rate Limiting
-
-- **Rate Limiting**: The app respects Reddit's API rate limits
-- **Data Privacy**: No data is stored permanently; everything is processed in real-time
-- **Caching**: Uses Streamlit's caching for better performance (1-hour TTL)
-- **Security**: API credentials are handled securely through Streamlit secrets
+- **Frontend**: Streamlit with custom CSS
+- **Data Processing**: Pandas, Plotly
+- **Reddit API**: PRAW
+- **AI Integration**: Azure OpenAI (GPT-4o)
+- **Deployment**: Streamlit Cloud
 
 ## 🐛 Troubleshooting
 
-### Common Issues
-
-1. **"Invalid credentials" error**:
-   - Verify your Reddit API credentials
-   - Ensure the user agent string is descriptive
-   - Check that your Reddit app type is set to "script"
-
-2. **"No posts found" error**:
-   - Verify the subreddit name is correct
-   - Check if the subreddit is private or banned
-   - Try adjusting your date filters
-
-3. **Rate limiting**:
-   - The app automatically handles rate limits
-   - If you hit limits, wait a few minutes before retrying
-
-4. **App won't start**:
-   - Check that all dependencies are installed
-   - Verify Python version compatibility (3.8+)
-   - Ensure environment variables are set correctly
-
-### Performance Tips
-
-- Use specific date ranges instead of "All" for large subreddits
-- Apply filters to reduce data volume
-- Clear browser cache if the app becomes slow
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-
-### Development Setup
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes and test thoroughly
-4. Commit your changes: `git commit -m 'Add feature'`
-5. Push to the branch: `git push origin feature-name`
-6. Submit a pull request
+- **Invalid credentials**: Check Reddit API keys in secrets
+- **No posts found**: Verify subreddit name and privacy settings  
+- **Rate limiting**: Wait a few minutes between large requests
+- **AI features not working**: Ensure Azure OpenAI credentials are configured
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## 🤝 Contributing
 
-- Built with [Streamlit](https://streamlit.io/) for the web interface
-- Uses [PRAW](https://praw.readthedocs.io/) for Reddit API access
-- Visualizations powered by [Plotly](https://plotly.com/)
-- Data processing with [Pandas](https://pandas.pydata.org/)
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-
-1. Check the [troubleshooting section](#-troubleshooting)
-2. Search existing [issues](https://github.com/pakagronglb/reddit-scraper/issues)
-3. Create a new issue with detailed information about the problem
+Contributions welcome! Please open an issue first for major changes.
 
 ---
 
