@@ -420,54 +420,84 @@ class AzureOpenAIService:
         else:
             sampled_posts = posts_df
 
-        # Prepare summary data (sanitize titles/snippets)
+        # Enhanced data preparation for unrelated posts analysis
         sampled_posts = sampled_posts.copy()
         sampled_posts['SafeTitle'], _ = zip(*[self._sanitize_text(t) for t in sampled_posts['Title'].fillna('').tolist()])
-        sampled_posts['SafeSnippet'], _ = zip(*[self._sanitize_text((p or '')[:200]) for p in sampled_posts['Post Text'].fillna('').tolist()])
+        sampled_posts['SafeSnippet'], _ = zip(*[self._sanitize_text((p or '')[:500]) for p in sampled_posts['Post Text'].fillna('').tolist()])
+        
+        # Statistical overview
         category_counts = sampled_posts['Category'].value_counts().to_dict()
         avg_score = sampled_posts['Score'].mean()
         avg_comments = sampled_posts['Total Comments'].mean()
         
-        # Get representative posts from each category
-        category_samples = {}
-        for category in sampled_posts['Category'].unique():
-            cat_posts = sampled_posts[sampled_posts['Category'] == category]
-            top_post = cat_posts.nlargest(1, 'Score').iloc[0]
-            category_samples[category] = {
-                "title": top_post['SafeTitle'],
-                "score": int(top_post['Score']),
-                "snippet": top_post['SafeSnippet']
-            }
+        # Get top posts by engagement (score + comments weighted)
+        sampled_posts['engagement_score'] = sampled_posts['Score'] * 0.7 + sampled_posts['Total Comments'] * 0.3
+        top_posts = sampled_posts.nlargest(min(15, len(sampled_posts)), 'engagement_score')
         
-        # Create batch analysis prompt
-        prompt = f"""Analyze these {len(sampled_posts)} Reddit posts for strategic business intelligence:
+        # Prepare detailed post data for analysis
+        post_details = []
+        for _, post in top_posts.iterrows():
+            post_details.append({
+                "title": post['SafeTitle'],
+                "snippet": post['SafeSnippet'],
+                "category": post.get('Category', 'General'),
+                "score": int(post['Score']),
+                "comments": int(post['Total Comments']),
+                "author": post.get('Author', 'Unknown')[:50],  # Limit author length
+                "subreddit": post.get('Subreddit', 'Unknown')
+            })
+        
+        # Create enhanced batch analysis prompt for multiple unrelated posts
+        prompt = f"""You are analyzing {len(sampled_posts)} Reddit posts from various subreddits and topics. These posts are largely unrelated, so focus on cross-cutting patterns, themes, and insights that emerge across the diverse content.
 
 DATASET OVERVIEW:
-- Total Posts: {len(sampled_posts)}
-- Categories: {json.dumps(category_counts)}
+- Total Posts Analyzed: {len(sampled_posts)}
+- Categories Distribution: {json.dumps(category_counts)}
 - Average Score: {avg_score:.1f}
 - Average Comments: {avg_comments:.1f}
 
-REPRESENTATIVE POSTS BY CATEGORY:
-{json.dumps(category_samples, indent=2)}
+TOP ENGAGEMENT POSTS (by score + comment activity):
+{json.dumps(post_details, indent=2)}
 
-Provide comprehensive market intelligence in JSON format:
-{{
-    "executive_summary": "3-4 sentence strategic overview",
-    "market_trends": ["trend 1", "trend 2", "trend 3"],
-    "customer_pain_points": {{"category": "pain points list"}},
-    "emerging_opportunities": ["opportunity 1", "opportunity 2"],
-    "competitive_landscape": "Overview of competitor mentions and sentiment",
-    "technology_adoption": {{"technology": "adoption status"}},
-    "pricing_insights": "Key findings about pricing and budget discussions",
-    "feature_requests": ["most requested features or solutions"],
-    "sentiment_analysis": {{"category": "sentiment"}},
-    "strategic_recommendations": ["actionable recommendation 1", "recommendation 2"],
-    "risk_factors": ["potential risk 1", "risk 2"],
-    "target_segments": ["identified customer segment 1", "segment 2"]
-}}
+Your task is to produce a structured analysis with these exact sections:
 
-Focus on actionable intelligence for business decision-making.
+1. **Overview**
+   - Brief summary of the dataset scope and diversity
+   - Key subreddits or communities represented
+   - Overall engagement patterns observed
+
+2. **Recurring Themes**
+   - Common topics, concerns, or interests that appear across multiple posts
+   - Trending subjects or discussions
+   - Seasonal or temporal patterns if evident
+
+3. **Sentiment & Community Mood**
+   - Overall sentiment across the posts (positive, negative, mixed)
+   - Common frustrations, celebrations, or concerns
+   - Community attitudes and behavioral patterns
+
+4. **Notable Insights**
+   - Surprising or interesting findings
+   - High-engagement outliers and what made them popular  
+   - Cross-community patterns or shared experiences
+
+5. **Content Categories Analysis**
+   - Breakdown of content types (questions, complaints, celebrations, etc.)
+   - Which categories generate most engagement
+   - Quality and depth of discussions by category
+
+6. **Recommendations**
+   - Content strategy insights for creators/marketers
+   - Community engagement best practices observed
+   - Timing and format recommendations based on successful posts
+
+Output formatting rules:
+- Use Markdown formatting
+- Keep analysis factual and grounded in the provided data
+- Avoid generic insights - be specific to what you observe
+- Use bullet points for lists within sections
+- Include specific examples from the posts when relevant
+- Do NOT invent details not present in the data
 """
         
         # Dynamic output token target for batch
@@ -489,36 +519,31 @@ Focus on actionable intelligence for business decision-making.
                 fb_response, fb_meta = self._call_llm(fb_prompt, max_tokens=min(800, dynamic_output_cap), temperature=0.3)
                 if fb_meta.get('error'):
                     return {"error": fb_meta['error'], "note": "Content filter triggered and fallback failed."}
-                try:
-                    parsed = json.loads(fb_response)
-                except json.JSONDecodeError:
-                    parsed = {"raw_analysis": fb_response}
-                parsed["metadata"] = {
-                    "fallback_mode": True,
-                    "reason": "content_filter_triggered",
-                    **fb_meta
+                return {
+                    "formatted_markdown": fb_response,
+                    "metadata": {
+                        **fb_meta,
+                        "fallback_mode": True,
+                        "reason": "content_filter_triggered",
+                        "posts_analyzed": len(sampled_posts),
+                        "total_posts": len(posts_df),
+                        "prompt_preview": fb_prompt
+                    }
                 }
-                return parsed
             return {"error": metadata['error']}
         
-        # Parse JSON response
-        try:
-            analysis = json.loads(response)
-            analysis["metadata"] = {
+        # Return structured markdown analysis for multiple unrelated posts
+        return {
+            "formatted_markdown": response,
+            "metadata": {
+                **metadata,
                 "posts_analyzed": len(sampled_posts),
                 "total_posts": len(posts_df),
                 "analyzed_at": datetime.now().isoformat(),
-                **metadata
-            }
-            analysis["metadata"].update({
                 "sanitized_batch": True if len(sampled_posts) else False,
                 "dynamic_output_token_limit": dynamic_output_cap,
-                "prompt_tokens_estimate": prompt_tokens
-            })
-            return analysis
-        except json.JSONDecodeError:
-            return {
-                "raw_analysis": response,
-                "metadata": {**metadata, "dynamic_output_token_limit": dynamic_output_cap, "prompt_tokens_estimate": prompt_tokens},
-                "note": "Analysis returned in text format"
+                "prompt_tokens_estimate": prompt_tokens,
+                "format": "markdown_batch_analysis_v1",
+                "prompt_preview": prompt
             }
+        }

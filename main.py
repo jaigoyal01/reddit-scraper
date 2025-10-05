@@ -816,7 +816,52 @@ def display_batch_summary(summary: dict):
     
     st.markdown("### 🧠 AI-Powered Market Intelligence")
     
-    # If model returned raw text instead of structured JSON
+    # New preferred rendering: direct markdown sections for batch analysis
+    if "formatted_markdown" in summary:
+        view_mode = st.radio(
+            "View Mode",
+            ["Rendered", "Raw Markdown", "Raw JSON"],
+            horizontal=True,
+            key="batch_summary_markdown_mode"
+        )
+
+        if view_mode == "Rendered":
+            st.markdown(summary["formatted_markdown"], unsafe_allow_html=False)
+        elif view_mode == "Raw Markdown":
+            with st.expander("Markdown Output", expanded=True):
+                st.code(summary["formatted_markdown"], language="markdown")
+        else:  # Raw JSON
+            with st.expander("Full JSON", expanded=True):
+                st.json(summary)
+
+        # Metadata display
+        meta = summary.get("metadata", {})
+        if meta:
+            with st.expander("📊 Analysis Details"):
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    if meta.get("posts_analyzed"):
+                        st.metric("Posts Analyzed", meta["posts_analyzed"])
+                with col2:
+                    if meta.get("tokens"):
+                        st.metric("Tokens", meta["tokens"].get("total", "N/A"))
+                with col3:
+                    if meta.get("cost_inr") is not None:
+                        st.metric("Cost (INR)", f"₹{meta['cost_inr']:.4f}")
+                with col4:
+                    if meta.get("processing_time") is not None:
+                        st.metric("Time", f"{meta['processing_time']:.2f}s")
+                if meta.get("prompt_preview"):
+                    with st.expander("🔍 Prompt Sent to LLM"):
+                        st.code(meta["prompt_preview"], language="markdown")
+                flags = []
+                if meta.get("fallback_mode"): flags.append("fallback_mode")
+                if meta.get("sanitized_batch"): flags.append("sanitized_batch")
+                if flags:
+                    st.caption("Flags: " + ", ".join(flags))
+        return
+    
+    # Legacy fallback: If model returned raw text instead of structured JSON
     if "executive_summary" not in summary and "raw_analysis" in summary:
         with st.expander("📝 Raw AI Output (Unstructured)", expanded=True):
             st.write(summary["raw_analysis"])
