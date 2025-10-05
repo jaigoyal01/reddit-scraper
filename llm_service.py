@@ -1,6 +1,6 @@
 """
 Azure OpenAI Service for Reddit Data Summarization
-Provides cost-controlled LLM integration with GPT-4o-mini
+Provides cost-controlled LLM integration with GPT-4o
 """
 
 import os
@@ -32,7 +32,7 @@ class CostTracker:
     def __init__(self, budget_limit: float = 100.0):
         self.usage_file = Path(".streamlit/usage_tracking.json")
         self.budget_limit = budget_limit
-        self.cost_per_1k_tokens = 0.0626  # GPT-4o-mini in INR
+        self.cost_per_1k_tokens = 0.84  # GPT-4o blended rate in INR (approx)
         self._ensure_usage_file()
     
     def _ensure_usage_file(self):
@@ -193,9 +193,9 @@ class AzureOpenAIService:
         input_tokens = self.count_tokens(input_text)
         total_tokens = input_tokens + estimated_output_tokens
         
-        # GPT-4o-mini: ₹0.01253 per 1K input, ₹0.0501 per 1K output
-        input_cost = (input_tokens / 1000) * 0.01253
-        output_cost = (estimated_output_tokens / 1000) * 0.0501
+        # GPT-4o: ₹0.42 per 1K input, ₹1.26 per 1K output
+        input_cost = (input_tokens / 1000) * 0.42
+        output_cost = (estimated_output_tokens / 1000) * 1.26
         
         return input_cost + output_cost
     
@@ -207,7 +207,7 @@ class AzureOpenAIService:
         try:
             start_time = time.time()
             
-            deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME") or st.secrets.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o-mini")
+            deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME") or st.secrets.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o")
             
             response = self.client.chat.completions.create(
                 model=deployment_name,
@@ -230,8 +230,8 @@ class AzureOpenAIService:
             output_tokens = usage.completion_tokens
             total_tokens = usage.total_tokens
             
-            input_cost = (input_tokens / 1000) * 0.01253
-            output_cost = (output_tokens / 1000) * 0.0501
+            input_cost = (input_tokens / 1000) * 0.42
+            output_cost = (output_tokens / 1000) * 1.26
             total_cost = input_cost + output_cost
             
             # Track usage

@@ -1195,7 +1195,7 @@ def main() -> None:
                     display_batch_summary(st.session_state['batch_summary'])
 
                 if generate_summary:
-                    with st.spinner("🤖 Analyzing posts with GPT-4o-mini... This may take 15-30 seconds."):
+                    with st.spinner("🤖 Analyzing posts with GPT-4o... This may take 15-30 seconds."): 
                         try:
                             estimated_cost = 0.75 if len(df) <= 50 else 1.50
                             can_proceed, message = llm_service.cost_tracker.check_budget(estimated_cost)
@@ -1365,7 +1365,7 @@ def main() -> None:
                         col1, col2 = st.columns([3, 1])
                         with col1:
                             st.markdown("### 🧠 AI-Powered Post Analysis")
-                            st.info("💡 Get comprehensive insights from the post and its comments using GPT-4o-mini")
+                            st.info("💡 Get comprehensive insights from the post and its comments using GPT-4o")
                         with col2:
                             generate_post_summary = st.button("🧠 Analyze Post", use_container_width=True, type="primary")
                         
@@ -1469,7 +1469,7 @@ def main() -> None:
 
                     # Enhanced download section
                     st.markdown('<h3 class="section-header">📥 Download Options</h3>', unsafe_allow_html=True)
-                    col1, col2, col3, col4 = st.columns(4)
+                    col1, col2, col3, col4, col5 = st.columns(5)
                     
                     with col1:
                         st.download_button(
@@ -1489,22 +1489,46 @@ def main() -> None:
                                 use_container_width=True
                             )
                     with col3:
-                        st.download_button(
-                            "📄 Post JSON",
-                            post_df.to_json(orient='records', date_format='iso').encode(),
-                            "post_details.json",
-                            "application/json",
-                            use_container_width=True
-                        )
+                        if st.button("📄 Copy Post JSON", use_container_width=True):
+                            st.code(post_df.to_json(orient='records', date_format='iso', indent=2), language='json')
+                            st.success("✅ Post JSON displayed above - you can copy it from the code block")
                     with col4:
                         if not cmt_df.empty:
-                            st.download_button(
-                                "💬 Comments JSON",
-                                filtered_cmt_df.to_json(orient='records', date_format='iso').encode(),
-                                "comments.json",
-                                "application/json",
-                                use_container_width=True
-                            )
+                            if st.button("💬 Copy Comments JSON", use_container_width=True):
+                                st.code(filtered_cmt_df.to_json(orient='records', date_format='iso', indent=2), language='json')
+                                st.success("✅ Comments JSON displayed above - you can copy it from the code block")
+                    with col5:
+                        if st.button("🔗 Copy Combined JSON", use_container_width=True):
+                            # Extract specific fields from post
+                            post_data = {
+                                "ID": post_df.iloc[0]["ID"] if "ID" in post_df.columns else "",
+                                "Title": post_df.iloc[0]["Title"] if "Title" in post_df.columns else "",
+                                "Post Text": post_df.iloc[0]["Post Text"] if "Post Text" in post_df.columns else "",
+                                "Subreddit": post_df.iloc[0]["Subreddit"] if "Subreddit" in post_df.columns else "",
+                                "Author": post_df.iloc[0]["Author"] if "Author" in post_df.columns else "",
+                                "Permalink": post_df.iloc[0]["Permalink"] if "Permalink" in post_df.columns else ""
+                            }
+                            
+                            # Extract specific fields from comments
+                            comments_data = []
+                            if not cmt_df.empty:
+                                for _, comment in filtered_cmt_df.iterrows():
+                                    comment_data = {
+                                        "Comment Text": comment["Comment Text"] if "Comment Text" in comment else "",
+                                        "Author": comment["Author"] if "Author" in comment else "",
+                                        "Score": comment["Score"] if "Score" in comment else 0
+                                    }
+                                    comments_data.append(comment_data)
+                            
+                            # Combine into single structure
+                            combined_data = {
+                                "post": post_data,
+                                "comments": comments_data
+                            }
+                            
+                            import json
+                            st.code(json.dumps(combined_data, indent=2), language='json')
+                            st.success("✅ Combined JSON displayed above - you can copy it from the code block")
         elif url:
             st.info("🔎 Click 'Scrape Post & Comments' to fetch the post.")
 
